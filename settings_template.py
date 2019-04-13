@@ -31,6 +31,7 @@ DATADIR = '.\\data'
 
 FFMPEG = r'Z:\Tools\ffmpeg.exe'
 FFMPEG_LOGLEVEL = 'warning'
+MAXTHREADS = 20
 
 OUTDIR = os.path.abspath(OUTDIR)
 DATADIR = os.path.abspath(DATADIR)
