@@ -198,3 +198,4 @@ dmypy.json
 /data
 /.spyproject
 settings.py
+.idea/encodings.xml

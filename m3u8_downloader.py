@@ -62,6 +62,7 @@ class M3U8Downloader:
 
     def download(self, tmp_dir, out_dir, filename):
         if self.m3u8.is_variant:
+            fetch_index = 1
             for index, playlist in enumerate(self.m3u8.playlists):
                 if ('/%s/' % self.definition) in playlist.uri:
                     fetch_index = index
@@ -70,8 +71,9 @@ class M3U8Downloader:
                 downloader = M3U8Downloader(
                     self.m3u8.playlists[fetch_index].absolute_uri
                 )
-            except (ValueError, IndexError):
+            except (ValueError, IndexError, UnboundLocalError):
                 logger.error('Invalid index When set definition!')
+                logger.error(self.m3u8.dumps())
                 return False
             downloader.download(tmp_dir, out_dir, filename)
                 

@@ -13,10 +13,12 @@ import os
 import pickle
 import logging
 
+from queue import Queue
 from lxml import etree
-from m3u8_downloader import M3U8Downloader
+from urllib.parse import parse_qs
+from downloader import M3u8ThreadDown
 from utils import str2file, readfile, escape
-from settings import USER, PASSWD, HEADERS, HOST, OUTDIR, DATADIR
+from settings import USER, PASSWD, HEADERS, HOST, OUTDIR, DATADIR, MAXTHREADS
 
 
 class Edusoho(object):
@@ -101,6 +103,12 @@ class Edusoho(object):
         lessons = self._get_chapter_list(course_id)
         chapter_id = 0
         chapter_name = ''
+        video_queue = Queue()
+        for i in range(MAXTHREADS):
+            t = M3u8ThreadDown(video_queue)
+            t.setDaemon(True)
+            t.start()
+            
         for lesson in lessons:
             res_type = lesson['type']
             status = lesson['status']
@@ -114,38 +122,48 @@ class Edusoho(object):
                 new_tmp_dir = '%s\\第%s章-%s' % (tmp_dir, chapter_id, escape(chapter_name))
                 file_name = escape(title)
                 if res_type == 'video':
-                    self._download_video(url, file_name, new_out_dir, new_tmp_dir)
+                    data = self._make_video_data(url, file_name, new_out_dir, new_tmp_dir)
+                    if data:
+                        video_queue.put(data)
+                    
                 else:
                     self._download_doc(url, file_name, new_out_dir, new_tmp_dir)
             elif res_type == 'chapter':
                 chapter_id = lesson['number']
                 chapter_name = lesson['title']
+        video_queue.join()
     
     def _download_doc(self, url, file_name, dir_name, tmp_dir):
         if os.path.exists('%s\\%s.has_down'%(tmp_dir, file_name)):
             return
+        os.makedirs(tmp_dir, exist_ok=True)
+        os.makedirs(dir_name, exist_ok=True)
         resp = self.session.get(url)
-        if '不能访问教学计划'.encode('utf8') in resp.text.encode('utf8'):
+        if '不能访问教学计划' in resp.text:
             self.logger.error('无权限访问该课程！')
             return
         doc_path = ''.join(re.findall('data-url="(.*?)"', resp.text))
         doc_url = self.host + doc_path
         resp = self.session.get(doc_url)
         # TODO: 下载的文件名在查询参数里，可通过头获得attname，再写准确的
-        str2file(resp.content, dir_name + '\\' + file_name + '.pdf')
+        str2file(resp.content, dir_name + '\\' + escape(parse_qs(resp.url.split('?')[1])['attname'][0]))
         str2file('', dir_name + '\\%s.has_down' % file_name)
-    def _download_video(self, url, title, out_dir, tmp_dir, clarity='shd'):
+
+    def _make_video_data(self, url, title, out_dir, tmp_dir, clarity='shd'):
         if os.path.exists(tmp_dir + '\\%s.has_down'%title):
-            return
+            return None
         url = re.sub(r'/show\?', r'/activity_show\?', url)
         resp = self.session.get(url=url)
         if '不能访问教学计划' in resp.text:
             self.logger.error('无权限访问该课程！')
             return
         playlist_url = ''.join(re.findall('data-url="(.*?)"', resp.text))
-        self.logger.info('start download' + title)
-        downloader = M3U8Downloader(playlist_url)
-        downloader.download(tmp_dir, out_dir, title)
+        data = {}
+        data['filename'] = title
+        data['tmp_dir'] = tmp_dir
+        data['out_dir'] = out_dir
+        data['playlist_url'] = playlist_url
+        return data
 
     def _init_logger(self, log_path=None, level=logging.DEBUG):
         self.logger = logging.getLogger('edusoho')
@@ -162,7 +180,8 @@ class Edusoho(object):
 
         # 定义handler的输出格式
         formatter = logging.Formatter(
-                '[%(asctime)s] %(filename)s->%(funcName)s line:%(lineno)d [%(levelname)s]%(message)s'
+                # '[%(asctime)s] %(filename)s->%(funcName)s line:%(lineno)d [%(levelname)s]%(message)s'
+                '[%(asctime)s] [%(levelname)s]%(message)s'
                 )
         fh.setFormatter(formatter)
         ch.setFormatter(formatter)
