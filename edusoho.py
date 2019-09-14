@@ -11,23 +11,22 @@ import logging
 import os
 import pickle
 import re
-from queue import Queue
-from urllib.parse import parse_qs
+from pprint import pprint
 from urllib.parse import urljoin, urlparse
 
+import m3u8
 import requests
 from lxml import etree
 
-from downloader import M3u8ThreadDown
-from settings import USER, PASSWD, HEADERS, OUTDIR, DATADIR, MAXTHREADS
-from datastorage import SqliteSession, Course, CourseDetail, User
+from datastorage import SqliteSession, Course, CourseDetail
+from logger import logger
+from settings import USER, PASSWD, HEADERS, DATADIR
 from utils import str2file, escape, md5
-from pprint import pprint
-import m3u8
 
 TRIM_KEY_URI = re.compile(r'https://www.aqniukt.com/hls/(\d+/clef/\w{32})')
 TRIM_FULL_KEY_URI = re.compile(r'(#EXT-X-KEY:METHOD=AES-128,URI=")https://www.aqniukt.com/hls/(\d+/clef/\w{32})')
 TRIM_USER_INFO = re.compile(r'(.*)\?.*')
+
 
 class Edusoho(object):
     session = None
@@ -49,20 +48,12 @@ class Edusoho(object):
                                             escape(self.user))
         os.makedirs(self.user_data_dir, exist_ok=True)
 
-    def _init_queue(self):
-        self.video_queue = Queue()
-        for i in range(MAXTHREADS):
-            t = M3u8ThreadDown(self.video_queue)
-            t.setDaemon(True)
-            t.start()
-
     def __init__(self, user=None, passwd=None, host='https://www.aqniukt.com'):
         self.user = user
         self.host = host
         self._init_dir()
         self._init_url()
-        self._init_logger()
-        self._init_queue()
+        self.logger = logger
         # 检查登陆
         if not self.is_login():
             if not self.login(user, passwd):
@@ -207,12 +198,12 @@ class Edusoho(object):
                         m3u8_full = resp.text
                         # 只存储必要的数据
                         m3u8_text = filter_header(m3u8_full)
-                        
+
                         m3u8_obj = m3u8.loads(m3u8_full)
                         # 下载密钥
                         keys = {}
                         for key in m3u8_obj.keys:
-                            u = TRIM_KEY_URI.sub(r'\1',key.absolute_uri)
+                            u = TRIM_KEY_URI.sub(r'\1', key.absolute_uri)
                             if u not in keys:
                                 resp = self.session.get(key.absolute_uri)
                                 keys[u] = decode_key(resp.text)
@@ -263,26 +254,6 @@ class Edusoho(object):
                         self.sql_session.rollback()
                     """
 
-    def _init_logger(self, log_path=None, file_level=logging.DEBUG, console_level=logging.DEBUG):
-        self.logger = logging.getLogger('edusoho')
-        self.logger.setLevel(logging.DEBUG)
-        # 创建一个handler，用于写入日志文件
-        self.log_path = log_path or os.path.join(self.user_data_dir, 'test.log')
-        fh = logging.FileHandler(self.log_path, 'a')
-        fh.setLevel(file_level)
-        # 再创建一个handler，用于输出到控制台
-        ch = logging.StreamHandler()
-        ch.setLevel(console_level)
-        # 定义handler的输出格式
-        formatter = logging.Formatter(
-            '[%(asctime)s] %(funcName)s [%(levelname)s] %(message)s'
-        )
-        fh.setFormatter(formatter)
-        ch.setFormatter(formatter)
-        # 给logger添加handler
-        self.logger.addHandler(fh)
-        self.logger.addHandler(ch)
-
     def crawl_my_course(self, use_cache=True):
         need_crawl = False
         if use_cache:
@@ -332,7 +303,10 @@ class Edusoho(object):
                 if resp.status_code == 200:
                     self._resolve_my_course(resp.text)
 
+
 logger = logging.getLogger('edusoho')
+
+
 def decode_key(key):
     """用于解密AES的Key
 
@@ -371,6 +345,7 @@ def decode_key(key):
     # logger.info('%s ==dec==> %s' % (key, dec_key))
     return dec_key
 
+
 def filter_header(m3u8_text):
     ret = None
     try:
@@ -391,8 +366,8 @@ def filter_header(m3u8_text):
             for segment in need_removes:
                 m3u8_obj.segments.remove(segment)
         ret = m3u8_obj.dumps()
-        ret = TRIM_FULL_KEY_URI.sub(r'\1\2',ret)
-        ret = TRIM_USER_INFO.sub(r'\1',ret)
+        ret = TRIM_FULL_KEY_URI.sub(r'\1\2', ret)
+        ret = TRIM_USER_INFO.sub(r'\1', ret)
     return ret
 
 

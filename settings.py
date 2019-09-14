@@ -10,8 +10,8 @@ import os
 user = 'admin'
 passwd = 'admin'
 
-USER = username
-PASSWD = password
+USER = user
+PASSWD = passwd
 
 # HOST = 'https://edu.aqniu.com'
 HOST = 'https://www.aqniukt.com'
@@ -40,3 +40,6 @@ MAXTHREADS = 20
 
 OUTDIR = os.path.abspath(OUTDIR)
 DATADIR = os.path.abspath(DATADIR)
+
+
+LOG_DIR = ''
