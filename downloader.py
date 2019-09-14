@@ -1,31 +1,40 @@
 #!/usr/bin/env python3.7
 # -*- coding: utf-8 -*-
-"""
-Created on Fri Apr  13 17:52:19 2019
 
-@author: WxJun
-"""
-import threading
+import os
 
-from m3u8_downloader import M3U8Downloader
+import m3u8
+import requests
+import re
+import ffmpy
 import logging
+
+from utils import str2file, md5
+from settings import HEADERS, FFMPEG, FFMPEG_LOGLEVEL
 
 logger = logging.getLogger('edusoho')
 
 
-class M3u8ThreadDown(threading.Thread):
-    def __init__(self, queue):
-        threading.Thread.__init__(self)
-        self.queue = queue
+def main():
+    ...
 
-    def run(self) -> None:
-        while True:
-            data = self.queue.get()
-            playlist_url = data['playlist_url']
-            tmp_dir = data['tmp_dir']
-            out_dir = data['out_dir']
-            filename = data['filename']
-            logger.info('start download \t' + filename)
-            downloader = M3U8Downloader(playlist_url)
-            downloader.download(tmp_dir, out_dir, filename)
-            self.queue.task_done()
+
+def download(ffmpeg_path, ffmpeg_loglevel, m3u8_path, mp4_path):
+    ffmpeg_cmd = ffmpy.FFmpeg(
+        ffmpeg_path,
+        '-y -loglevel {}'.format(ffmpeg_loglevel),
+        inputs={m3u8_path: '-allowed_extensions ALL -protocol_whitelist "file,http,crypto,tcp,https,tls"'},
+        outputs={mp4_path: '-c copy'}
+    )
+    logger.info(ffmpeg_cmd.cmd)
+    try:
+        ffmpeg_cmd.run()
+    except ffmpy.FFRuntimeError as e:
+        logger.error(e)
+        res = False
+    else:
+        res = True
+    return res
+
+if __name__ == '__main__':
+    download()

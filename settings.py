@@ -7,10 +7,14 @@ Created on Sat Apr  6 18:39:34 2019
 """
 import os
 
-USER = 'your name'
-PASSWD = 'your password'
+user = 'admin'
+passwd = 'admin'
 
-HOST = 'https://edu.aqniu.com'
+USER = username
+PASSWD = password
+
+# HOST = 'https://edu.aqniu.com'
+HOST = 'https://www.aqniukt.com'
 HEADERS = {
     'Cache-Control': 'max-age=0',
     'Origin': 'https://edu.aqniu.com',
@@ -26,11 +30,13 @@ HEADERS = {
     'Accept-Language': 'zh-CN,zh;q=0.9',
 }
 
-OUTDIR = 'G:\\gaga'
-DATADIR = '.\\data'
+OUTDIR = r'G:\神秘网校'
+DATADIR = 'data'
 
-FFMPEG = r'Z:\Tools\ffmpeg.exe'
-FFMPEG_LOGLEVEL = 'warning'
+FFMPEG = r'E:\Tools\cmdtool\ffmpeg.exe'
+FFMPEG_LOGLEVEL = 'error'
+
+MAXTHREADS = 20
 
 OUTDIR = os.path.abspath(OUTDIR)
 DATADIR = os.path.abspath(DATADIR)

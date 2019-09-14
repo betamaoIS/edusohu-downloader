@@ -17,7 +17,7 @@ logger = logging.getLogger('edusoho')
 def escape(s):
 #    s = s if isinstance(s, bytes) else s.encode('utf8')
 #    return re.sub('[\\/*?"<>|:]'.encode('utf8'),'-'.encode('utf8'), s)
-    return re.sub('[\\/*?"<>|:]','-', s)
+    return re.sub(r'[\\/*?"<>|:]','-', s)
 
 
 def str2file(s, path, m='wb'):
@@ -41,4 +41,6 @@ def readfile(path):
 
 
 def md5(s):
+    if isinstance(s, str):
+        s = s.encode('utf8')
     return hashlib.md5(s).hexdigest()

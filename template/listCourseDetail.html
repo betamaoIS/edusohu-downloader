@@ -1,0 +1,15 @@
+$def with (res)
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <title>Title</title>
+</head>
+<body>
+<ol>
+$for course_name, chapter_id,chapter_name,section_id,section_name, section_md5 in res:
+    <li>
+    <a href="/course/player/$section_md5">$chapter_id $chapter_name $section_id $section_name</a></li>
+</ol>
+</body>
+</html>
