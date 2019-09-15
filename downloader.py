@@ -3,7 +3,6 @@
 import errno
 import json
 import os
-import re
 import subprocess
 from multiprocessing.dummy import Pool
 
@@ -13,8 +12,6 @@ from datastorage import SqliteSession, CourseDetail, Course
 from logger import logger
 from settings import FFMPEG, FFMPEG_LOGLEVEL, MAXTHREADS
 from utils import escape
-
-TRIM_FULL_KEY_URI = re.compile(r'(#EXT-X-KEY:METHOD=AES-128,URI=")\d+/clef/(\w{32})')
 
 
 def main():
@@ -62,32 +59,31 @@ def gen_course_data(root='out'):
             f.write(key)
 
 
-def download(m3u8_path, mp4_path=None, ffmpeg_path=FFMPEG, ffmpeg_loglevel=FFMPEG_LOGLEVEL):
+def download(m3u8_path, mp4_path=None, ffmpeg_path=FFMPEG, ffmpeg_loglevel=FFMPEG_LOGLEVEL, force_down=False):
     """执行下载操作，需要依赖ffmpeg
 
     :param m3u8_path: 要下载的m3u8文件的绝对路径
-    :param mp4_path: 输出文件路径，默认输出和m3u8同级目录同名文件。
+    :param mp4_path: 输出文件路径，默认输出和m3u8同级目录同名文件
     :param ffmpeg_path: ffmpeg可执行程序的路径
     :param ffmpeg_loglevel: 日志级别
+    :param force_down: 当已将下载过的文件是否强制重新下载，默认不重新下载
     :return:
     """
-    cache = m3u8_path.replace('.m3u8', '.has_down')
-    if os.path.exists(cache):
-        return
     if mp4_path is None:
         mp4_path = m3u8_path.replace('.m3u8', '.mp4')
+    if not force_down and os.path.exists(mp4_path):
+        return
     ffmpeg_cmd = ffmpy.FFmpeg(
         ffmpeg_path,
         '-y -loglevel {}'.format(ffmpeg_loglevel),
         inputs={m3u8_path: '-allowed_extensions ALL -protocol_whitelist "file,http,crypto,tcp,https,tls"'},
         outputs={mp4_path: '-c copy'}
     )
-    # logger.info(ffmpeg_cmd.cmd)
+    logger.info(ffmpeg_cmd.cmd)
     try:
         try:
             process = subprocess.Popen(
-                ffmpeg_cmd.cmd,
-                shell=True,
+                ffmpeg_cmd._cmd,
                 cwd=os.path.dirname(m3u8_path)
             )
         except OSError as e:
@@ -101,12 +97,7 @@ def download(m3u8_path, mp4_path=None, ffmpeg_path=FFMPEG, ffmpeg_loglevel=FFMPE
     except Exception as e:
         logger.error('{} ---> {}'.format(m3u8_path, e))
     else:
-        try:
-            with open(cache, 'w') as f:
-                f.write('hello world')
-        except Exception as e:
-            logger.error('{} ---> {}'.format(cache, e))
-    logger.info('{} download finish...'.format(m3u8_path))
+        logger.info('{} download finish...'.format(m3u8_path))
 
 
 def download_all(root, thread_num=MAXTHREADS):
@@ -122,6 +113,7 @@ def download_all(root, thread_num=MAXTHREADS):
                 continue
             path = os.path.join(root_, file_)
             m3u8s.append(os.path.abspath(path))
+    logger.info('total {} files, starts....'.format(len(m3u8s)))
     with Pool(thread_num) as pool:
         pool.map(download, m3u8s)
 
